@@ -5,10 +5,16 @@
 体验状态机模式如何在不同阶段改变代理行为。
 """
 
+import sys
 import os
+
+# 设置 UTF-8 编码（解决 Windows 中文/emoji 输出问题）
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 import uuid
 from dotenv import load_dotenv
-from langchain_community.chat_models.tongyi import ChatTongyi
+from langchain.chat_models import init_chat_model
 from langchain.tools import tool, ToolRuntime
 from langchain.agents import AgentState, create_agent
 from langchain.agents.middleware import wrap_model_call, ModelRequest, ModelResponse
@@ -22,10 +28,16 @@ from typing_extensions import NotRequired
 load_dotenv()
 
 # 初始化 Qwen LLM
-model = ChatTongyi(
+try:
+    model = init_chat_model(
     model=os.environ.get("QWEN_LLM_MODEL", "qwen-plus"),
-    dashscope_api_key=os.environ.get("QWEN_API_KEY")
+    model_provider="openai",
+    openai_api_key=os.environ.get("QWEN_API_KEY"),
+    openai_api_base=os.environ.get("QWEN_LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 )
+except Exception as e:
+    print(f"❌ 初始化 Qwen LLM 失败: {e}")
+    exit(1)
 
 # ============================================================================
 # 定义状态和工具（与 customer_support_example.py 相同）
@@ -218,7 +230,8 @@ def print_state_info(state):
         "resolution_specialist": "解决方案"
     }
     
-    current_step = state.get('current_step', 'warranty_collector')
+    # 如果 current_step 是 None，使用默认值
+    current_step = state.get('current_step') or 'warranty_collector'
     print(f"\n📊 当前阶段: {step_names.get(current_step, current_step)}")
     
     if state.get('warranty_status'):
@@ -276,12 +289,13 @@ def run_interactive_session():
                 "issue_type": result.get('issue_type')
             }
             
-            # 打印代理回复
+            # 打印代理回复（取最后一条 AI 消息）
             print("\n助理:", end=" ")
-            for msg in result['messages']:
-                if hasattr(msg, 'content') and msg.content and msg.type == 'ai':
-                    print(msg.content)
-                    break
+            ai_messages = [msg for msg in result['messages'] if hasattr(msg, 'content') and msg.content and msg.type == 'ai']
+            if ai_messages:
+                print(ai_messages[-1].content)  # 打印最后一条
+            else:
+                print("(没有回复)")
             
             # 显示状态变化
             print_state_info(state)

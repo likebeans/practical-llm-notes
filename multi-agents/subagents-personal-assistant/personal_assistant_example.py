@@ -6,7 +6,13 @@
 这些子代理被包装为工具。
 """
 
+import sys
 import os
+
+# 设置 UTF-8 编码（解决 Windows 中文/emoji 输出问题）
+if sys.platform == "win32":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from dotenv import load_dotenv
 from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain.tools import tool

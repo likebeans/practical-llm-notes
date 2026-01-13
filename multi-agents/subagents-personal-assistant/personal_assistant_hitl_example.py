@@ -164,11 +164,26 @@ def print_interrupt_info(interrupt):
     print("⚠️  检测到中断 - 等待人工审批")
     print("🔔"*40)
     
-    for request in interrupt.value["action_requests"]:
-        print(f"\n📋 工具: {request['tool']}")
-        print(f"📝 参数:")
-        for key, value in request['args'].items():
-            print(f"   - {key}: {value}")
+    # 调试：打印实际的数据结构
+    print("\n🔍 调试信息:")
+    print(f"Interrupt ID: {interrupt.id}")
+    print(f"Interrupt value keys: {interrupt.value.keys()}")
+    
+    if "action_requests" in interrupt.value:
+        for i, request in enumerate(interrupt.value["action_requests"], 1):
+            print(f"\n📋 请求 {i}:")
+            print(f"Request keys: {request.keys()}")
+            print(f"Request content: {request}")
+            
+            # 尝试不同的键名
+            if 'tool' in request:
+                print(f"   工具: {request['tool']}")
+            if 'description' in request:
+                print(f"   描述: {request['description']}")
+            if 'args' in request:
+                print(f"   参数: {request['args']}")
+            if 'arguments' in request:
+                print(f"   参数: {request['arguments']}")
 
 
 def get_user_decision():
@@ -234,9 +249,17 @@ if __name__ == "__main__":
             request = interrupt.value["action_requests"][0]
             
             # 显示详细信息
-            print(f"工具: {request['tool']}")
-            for key, value in request['args'].items():
-                print(f"  {key}: {value}")
+            print(f"Request keys: {request.keys()}")
+            if 'description' in request:
+                print(f"描述: {request['description']}")
+            if 'tool' in request:
+                print(f"工具: {request['tool']}")
+            if 'args' in request:
+                for key, value in request['args'].items():
+                    print(f"  {key}: {value}")
+            elif 'arguments' in request:
+                for key, value in request['arguments'].items():
+                    print(f"  {key}: {value}")
             
             # 获取用户决策
             decision = get_user_decision()
@@ -253,7 +276,10 @@ if __name__ == "__main__":
                 # 修改
                 print("\n修改参数（直接回车保持原值）:")
                 edited_action = request.copy()
-                edited_args = edited_action['args'].copy()
+                
+                # 支持 'args' 或 'arguments'
+                args_key = 'args' if 'args' in edited_action else 'arguments'
+                edited_args = edited_action[args_key].copy()
                 
                 for key, value in edited_args.items():
                     new_value = input(f"  {key} [{value}]: ").strip()
@@ -264,7 +290,8 @@ if __name__ == "__main__":
                         else:
                             edited_args[key] = new_value
                 
-                edited_action['arguments'] = edited_args
+                # 使用正确的键名更新
+                edited_action['arguments' if args_key == 'args' else 'arguments'] = edited_args
                 resume[interrupt.id] = {
                     "decisions": [{"type": "edit", "edited_action": edited_action}]
                 }
